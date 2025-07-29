@@ -24,8 +24,8 @@ let logs = [];
 // API routes here...
 // [Same as previous backend code]
 
-app.get("*", (req, res) => {
-  res.sendFile(path.join(__dirname, "public", "index.html")); // for SPA routing
+app.get("/*", (req, res) => {
+  res.sendFile(path.join(__dirname, "public", "index.html"));
 });
 
 app.listen(PORT, () => {
