@@ -2,6 +2,7 @@ const express = require("express");
 const cors = require("cors");
 const bodyParser = require("body-parser");
 const path = require("path");
+const fs = require("fs").promises;
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -10,16 +11,38 @@ app.use(cors());
 app.use(bodyParser.json());
 app.use(express.static(path.join(__dirname, "public"))); // serves frontend
 
-let players = [
-  { id: 1, name: 'Riccardo', points: 0 },
-  { id: 2, name: 'Rohan', points: 0 },
-  { id: 3, name: 'Roshan', points: 0 },
-  { id: 4, name: 'Sam', points: 0 },
-  { id: 5, name: 'Katerina', points: 0 },
-  { id: 6, name: 'Hemant', points: 0 }
-];
+const DATA_FILE = path.join(__dirname, "data.json");
 
+let players = [];
 let logs = [];
+
+// Load data from file if exists
+async function loadData() {
+  try {
+    const data = await fs.readFile(DATA_FILE, "utf-8");
+    const parsed = JSON.parse(data);
+    players = parsed.players || [];
+    logs = parsed.logs || [];
+  } catch (err) {
+    // File doesn't exist or corrupted, start fresh
+    players = [
+      { id: 1, name: "Riccardo", points: 0 },
+      { id: 2, name: "Rohan", points: 0 },
+      { id: 3, name: "Roshan", points: 0 },
+      { id: 4, name: "Sam", points: 0 },
+      { id: 5, name: "Katerina", points: 0 },
+      { id: 6, name: "Hemant", points: 0 },
+    ];
+    logs = [];
+    await saveData();
+  }
+}
+
+// Save current data to file
+async function saveData() {
+  const data = JSON.stringify({ players, logs }, null, 2);
+  await fs.writeFile(DATA_FILE, data, "utf-8");
+}
 
 // API routes here
 
@@ -29,30 +52,32 @@ app.get("/api/players", (req, res) => {
 });
 
 // Add a new player
-app.post("/api/players", (req, res) => {
+app.post("/api/players", async (req, res) => {
   const { name } = req.body;
   if (!name) return res.status(400).json({ error: "Name is required" });
 
-  const newId = players.length > 0 ? Math.max(...players.map(p => p.id)) + 1 : 1;
+  const newId = players.length > 0 ? Math.max(...players.map((p) => p.id)) + 1 : 1;
   const newPlayer = { id: newId, name, points: 0 };
   players.push(newPlayer);
+  await saveData();
   res.json(newPlayer);
 });
 
 // Update points
-app.post("/api/players/:id/points", (req, res) => {
+app.post("/api/players/:id/points", async (req, res) => {
   const playerId = parseInt(req.params.id);
   const { points } = req.body;
-  const player = players.find(p => p.id === playerId);
+  const player = players.find((p) => p.id === playerId);
   if (!player) return res.status(404).json({ error: "Player not found" });
 
   player.points += points;
   const logEntry = {
     playerName: player.name,
     pointsAdded: points,
-    timestamp: new Date().toISOString()
+    timestamp: new Date().toISOString(),
   };
   logs.unshift(logEntry);
+  await saveData();
   res.json({ player, logEntry });
 });
 
@@ -62,9 +87,10 @@ app.get("/api/logs", (req, res) => {
 });
 
 // Reset data
-app.post("/api/reset", (req, res) => {
-  players = players.map(p => ({ ...p, points: 0 }));
+app.post("/api/reset", async (req, res) => {
+  players = players.map((p) => ({ ...p, points: 0 }));
   logs = [];
+  await saveData();
   res.json({ message: "Data reset." });
 });
 
@@ -73,7 +99,9 @@ app.get(/^\/.*$/, (req, res) => {
   res.sendFile(path.join(__dirname, "public", "index.html"));
 });
 
-// Start server — only call this once, at the end
-app.listen(PORT, () => {
-  console.log(`Server running on port ${PORT}`);
+// Start server
+loadData().then(() => {
+  app.listen(PORT, () => {
+    console.log(`Server running on port ${PORT}`);
+  });
 });
