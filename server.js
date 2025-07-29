@@ -68,8 +68,8 @@ app.post("/api/reset", (req, res) => {
   res.json({ message: "Data reset." });
 });
 
-// Catch-all to serve index.html for SPA routing (put this **after** all other routes)
-app.get("/*", (req, res) => {
+// Catch-all to serve index.html for SPA routing (after all other routes)
+app.get(/^\/.*$/, (req, res) => {
   res.sendFile(path.join(__dirname, "public", "index.html"));
 });
 
