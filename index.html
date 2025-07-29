@@ -1,0 +1,335 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CAT Rankings (Casuals at Tennis)</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.5.1/dist/confetti.browser.min.js"></script>
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #f0f4f8; /* Light grey-blue background */
+        }
+        .tennis-court {
+            background-color: #4A934A; /* Tennis court green */
+        }
+        .tennis-lines {
+            border-color: #ffffff;
+        }
+        .player-card, .leaderboard-card, .log-card {
+            transition: all 0.3s ease-in-out;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        }
+        .player-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 8px 12px rgba(0, 0, 0, 0.15);
+        }
+        .leaderboard-table tr {
+            transition: all 0.5s ease-in-out;
+        }
+        .btn-add {
+            transition: all 0.2s ease-in-out;
+        }
+        .btn-add:hover {
+            transform: scale(1.05);
+        }
+        .btn-add:active {
+            transform: scale(0.95);
+        }
+        .rank-up {
+            animation: rank-up-animation 0.5s ease-in-out;
+        }
+        .rank-down {
+            animation: rank-down-animation 0.5s ease-in-out;
+        }
+        .rank-one {
+            background-color: #FFD700; /* Gold color */
+            color: #422c00;
+            font-weight: bold;
+        }
+        @keyframes rank-up-animation {
+            0% { background-color: transparent; transform: translateY(20px); opacity: 0;}
+            50% { background-color: #a7f3d0; } /* Light green flash */
+            100% { background-color: transparent; transform: translateY(0); opacity: 1;}
+        }
+        @keyframes rank-down-animation {
+            0% { background-color: transparent; transform: translateY(-20px); opacity: 0;}
+            50% { background-color: #fecaca; } /* Light red flash */
+            100% { background-color: transparent; transform: translateY(0); opacity: 1;}
+        }
+        /* Modal Styles */
+        .modal-overlay {
+            transition: opacity 0.3s ease;
+        }
+        .modal-container {
+            transition: transform 0.3s ease, opacity 0.3s ease;
+        }
+    </style>
+</head>
+<body class="bg-gray-100 text-gray-800 p-4 sm:p-6 md:p-8">
+
+    <div class="max-w-7xl mx-auto">
+        <!-- Header -->
+        <header class="text-center mb-8 relative">
+            <h1 class="text-4xl sm:text-5xl font-bold text-gray-800">CAT Rankings</h1>
+            <p class="text-lg text-gray-600">Casuals at Tennis</p>
+            <button id="reset-button" class="absolute top-0 right-0 text-xs text-gray-400 hover:text-red-500 hover:underline transition-colors">Reset Data</button>
+        </header>
+
+        <main class="grid grid-cols-1 lg:grid-cols-3 gap-8">
+            <!-- Players Section -->
+            <div class="lg:col-span-2 space-y-6">
+                <div class="flex justify-between items-center border-b-2 border-gray-300 pb-2">
+                    <h2 class="text-2xl font-bold">Players</h2>
+                </div>
+
+                <!-- Add Player Form -->
+                <div class="bg-white p-4 rounded-lg shadow-md">
+                    <form id="add-player-form" class="flex flex-col sm:flex-row gap-3">
+                        <input type="text" id="new-player-name" placeholder="Enter new player's name" class="flex-grow p-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500" required>
+                        <button type="submit" class="bg-blue-500 hover:bg-blue-600 text-white font-bold py-2 px-4 rounded-md transition-colors">Add Player</button>
+                    </form>
+                </div>
+
+                <div id="players-container" class="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-6">
+                    <!-- Player cards will be injected here by JavaScript -->
+                </div>
+            </div>
+
+            <!-- Leaderboard and Log Section -->
+            <div class="space-y-8">
+                <!-- Leaderboard -->
+                <div class="leaderboard-card bg-white p-6 rounded-xl shadow-lg">
+                    <h2 class="text-2xl font-bold mb-4 text-center tennis-court text-white py-2 rounded-t-lg">ATP-Style Rankings</h2>
+                    <div class="overflow-x-auto">
+                        <table class="min-w-full leaderboard-table">
+                            <thead class="bg-gray-200">
+                                <tr>
+                                    <th class="px-4 py-2 text-left font-semibold">Rank</th>
+                                    <th class="px-4 py-2 text-left font-semibold">Player</th>
+                                    <th class="px-4 py-2 text-right font-semibold">Points</th>
+                                </tr>
+                            </thead>
+                            <tbody id="leaderboard-body">
+                                <!-- Leaderboard rows will be injected here -->
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <!-- Score Log -->
+                <div class="log-card bg-white p-6 rounded-xl shadow-lg">
+                    <h2 class="text-2xl font-bold mb-4 text-center">Score History</h2>
+                    <div id="score-log" class="h-64 overflow-y-auto space-y-2 pr-2">
+                        <!-- Log entries will be injected here -->
+                    </div>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <!-- Reset Confirmation Modal -->
+    <div id="reset-modal" class="modal-overlay fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 hidden">
+        <div class="modal-container bg-white w-full max-w-md p-6 rounded-lg shadow-xl">
+            <h3 class="text-xl font-bold mb-4" id="modal-title">Confirm Reset</h3>
+            <p id="modal-text" class="text-gray-700 mb-6">Are you sure?</p>
+            <div class="flex justify-end gap-4">
+                <button id="modal-cancel" class="px-4 py-2 bg-gray-200 text-gray-800 rounded-md hover:bg-gray-300">Cancel</button>
+                <button id="modal-confirm" class="px-4 py-2 bg-red-500 text-white rounded-md hover:bg-red-600">Yes, I'm sure</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            // --- Element Selectors ---
+            const playersContainer = document.getElementById('players-container');
+            const leaderboardBody = document.getElementById('leaderboard-body');
+            const scoreLog = document.getElementById('score-log');
+            const addPlayerForm = document.getElementById('add-player-form');
+            const newPlayerNameInput = document.getElementById('new-player-name');
+            const resetButton = document.getElementById('reset-button');
+            const resetModal = document.getElementById('reset-modal');
+            const modalText = document.getElementById('modal-text');
+            const modalConfirm = document.getElementById('modal-confirm');
+            const modalCancel = document.getElementById('modal-cancel');
+
+            // --- Data Initialization ---
+            const initialPlayers = [
+                { id: 1, name: 'Riccardo', points: 0 },
+                { id: 2, name: 'Rohan', points: 0 },
+                { id: 3, name: 'Roshan', points: 0 },
+                { id: 4, name: 'Sam', points: 0 },
+                { id: 5, name: 'Katerina', points: 0 },
+                { id: 6, name: 'Hemant', points: 0 },
+            ];
+
+            let players = JSON.parse(localStorage.getItem('cat_rankings_players')) || JSON.parse(JSON.stringify(initialPlayers));
+            let logs = JSON.parse(localStorage.getItem('cat_rankings_logs')) || [];
+            let previousRanks = {};
+            let confirmationStep = 0;
+
+            // --- Main Functions ---
+
+            const saveData = () => {
+                localStorage.setItem('cat_rankings_players', JSON.stringify(players));
+                localStorage.setItem('cat_rankings_logs', JSON.stringify(logs));
+            };
+            
+            const resetData = () => {
+                players = JSON.parse(JSON.stringify(initialPlayers));
+                logs = [];
+                localStorage.removeItem('cat_rankings_players');
+                localStorage.removeItem('cat_rankings_logs');
+                render();
+            };
+
+            const addNewPlayer = (playerName) => {
+                if (!playerName || !playerName.trim()) return;
+                const newId = players.length > 0 ? Math.max(...players.map(p => p.id)) + 1 : 1;
+                const newPlayer = { id: newId, name: playerName.trim(), points: 0 };
+                players.push(newPlayer);
+                saveData();
+                render();
+            };
+
+            const addPoints = (playerId, pointsToAdd) => {
+                const player = players.find(p => p.id === playerId);
+                if (player) {
+                    storePreviousRanks();
+                    player.points += pointsToAdd;
+                    const timestamp = new Date();
+                    const logEntry = { playerName: player.name, pointsAdded: pointsToAdd, timestamp: timestamp.toISOString() };
+                    logs.unshift(logEntry);
+                    saveData();
+                    render();
+                    triggerConfetti();
+                }
+            };
+
+            const triggerConfetti = () => {
+                confetti({ particleCount: 150, spread: 90, origin: { y: 0.6 } });
+            };
+            
+            const storePreviousRanks = () => {
+                const sortedPlayers = [...players].sort((a, b) => b.points - a.points);
+                sortedPlayers.forEach((player, index) => {
+                    previousRanks[player.id] = index + 1;
+                });
+            };
+
+            // --- Render Functions ---
+
+            const renderPlayers = () => {
+                playersContainer.innerHTML = '';
+                players.forEach(player => {
+                    const playerCard = document.createElement('div');
+                    playerCard.className = 'player-card bg-white p-5 rounded-lg shadow-md flex flex-col items-center space-y-3';
+                    playerCard.innerHTML = `
+                        <h3 class="text-xl font-semibold">${player.name}</h3>
+                        <p class="text-3xl font-bold text-green-600">${player.points}</p>
+                        <button class="btn-add bg-green-500 hover:bg-green-600 text-white font-bold py-2 px-4 rounded-full w-full" data-player-id="${player.id}">
+                            +10 Points
+                        </button>
+                    `;
+                    playersContainer.appendChild(playerCard);
+                });
+            };
+
+            const renderLeaderboard = () => {
+                leaderboardBody.innerHTML = '';
+                const sortedPlayers = [...players].sort((a, b) => b.points - a.points);
+                sortedPlayers.forEach((player, index) => {
+                    const rank = index + 1;
+                    const row = document.createElement('tr');
+                    row.className = 'border-b border-gray-200';
+                    if (rank === 1 && player.points > 0) row.classList.add('rank-one');
+                    const prevRank = previousRanks[player.id];
+                    if (prevRank) {
+                        if (rank < prevRank) row.classList.add('rank-up');
+                        else if (rank > prevRank) row.classList.add('rank-down');
+                    }
+                    row.innerHTML = `
+                        <td class="px-4 py-3 text-lg">${rank}</td>
+                        <td class="px-4 py-3">${player.name}</td>
+                        <td class="px-4 py-3 text-right font-medium">${player.points}</td>
+                    `;
+                    leaderboardBody.appendChild(row);
+                });
+            };
+
+            const renderLogs = () => {
+                scoreLog.innerHTML = '';
+                logs.slice(0, 50).forEach(log => {
+                    const logElement = document.createElement('div');
+                    logElement.className = 'bg-gray-100 p-2 rounded-md text-sm';
+                    const time = new Date(log.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+                    const date = new Date(log.timestamp).toLocaleDateString([], { day: '2-digit', month: 'short' });
+                    logElement.innerHTML = `
+                        <span class="font-semibold">${log.playerName}</span> got +${log.pointsAdded} pts
+                        <span class="text-gray-500 float-right">${date} ${time}</span>
+                    `;
+                    scoreLog.appendChild(logElement);
+                });
+                 if (logs.length === 0) {
+                    scoreLog.innerHTML = `<p class="text-gray-500 text-center">No scores added yet.</p>`;
+                }
+            };
+
+            const render = () => {
+                renderPlayers();
+                renderLeaderboard();
+                renderLogs();
+            };
+
+            // --- Modal Logic ---
+            const showModal = () => {
+                resetModal.classList.remove('hidden');
+            };
+
+            const hideModal = () => {
+                resetModal.classList.add('hidden');
+                confirmationStep = 0; // Reset step on close
+            };
+
+            // --- Event Listeners ---
+            playersContainer.addEventListener('click', (e) => {
+                if (e.target.matches('.btn-add')) {
+                    const playerId = parseInt(e.target.dataset.playerId, 10);
+                    addPoints(playerId, 10);
+                }
+            });
+
+            addPlayerForm.addEventListener('submit', (e) => {
+                e.preventDefault();
+                addNewPlayer(newPlayerNameInput.value);
+                newPlayerNameInput.value = '';
+            });
+
+            resetButton.addEventListener('click', () => {
+                confirmationStep = 1;
+                modalText.innerHTML = "Are you sure you want to reset all data? This will clear all scores and player lists.";
+                showModal();
+            });
+
+            modalCancel.addEventListener('click', hideModal);
+
+            modalConfirm.addEventListener('click', () => {
+                if (confirmationStep === 1) {
+                    confirmationStep = 2;
+                    modalText.innerHTML = "<strong class='text-red-600'>FINAL WARNING:</strong> All scores and history will be permanently wiped. This action cannot be undone. Are you absolutely sure?";
+                } else if (confirmationStep === 2) {
+                    resetData();
+                    hideModal();
+                }
+            });
+
+            // --- Initial Load ---
+            storePreviousRanks();
+            render();
+        });
+    </script>
+</body>
+</html>
