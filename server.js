@@ -21,17 +21,7 @@ let players = [
 
 let logs = [];
 
-// API routes here...
-// [Same as previous backend code]
-
-app.get("/*", (req, res) => {
-  res.sendFile(path.join(__dirname, "public", "index.html"));
-});
-
-app.listen(PORT, () => {
-  console.log(`Server running on port ${PORT}`);
-});
-
+// API routes here
 
 // Get all players
 app.get("/api/players", (req, res) => {
@@ -78,7 +68,12 @@ app.post("/api/reset", (req, res) => {
   res.json({ message: "Data reset." });
 });
 
-// Start server
+// Catch-all to serve index.html for SPA routing (put this **after** all other routes)
+app.get("/*", (req, res) => {
+  res.sendFile(path.join(__dirname, "public", "index.html"));
+});
+
+// Start server — only call this once, at the end
 app.listen(PORT, () => {
-  console.log(`Server running at http://localhost:${PORT}`);
+  console.log(`Server running on port ${PORT}`);
 });
