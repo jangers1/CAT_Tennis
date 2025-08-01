@@ -3,14 +3,15 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>CAT Rankings (Casuals at Tennis)</title>
+    <title>Tennis Rankings</title>
     <script src="https://cdn.tailwindcss.com"></script>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
     <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.5.1/dist/confetti.browser.min.js"></script>
     <style>
         body {
             font-family: 'Inter', sans-serif;
             background-color: #f0f4f8; /* Light grey-blue background */
+            transition: background-color 0.5s ease-in-out; /* For winning animation */
         }
         .tennis-court {
             background-color: #4A934A; /* Tennis court green */
@@ -66,6 +67,64 @@
         .modal-container {
             transition: transform 0.3s ease, opacity 0.3s ease;
         }
+        .progress-bar-container {
+            height: 20px;
+            background-color: #e0e0e0;
+            border-radius: 10px;
+            overflow: hidden;
+            margin-top: 10px;
+            margin-bottom: 20px;
+            box-shadow: inset 0 1px 3px rgba(0,0,0,0.2);
+        }
+        .progress-bar {
+            height: 100%;
+            background-color: #FFD700; /* Always gold for progress bar */
+            border-radius: 10px;
+            text-align: center;
+            color: black; /* Changed to black */
+            transition: width 0.5s ease-in-out;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: bold;
+            font-size: 0.8rem;
+        }
+        /* Glow animation for progress bar */
+        .progress-bar-glow {
+            animation: glow 1.5s infinite alternate;
+        }
+        @keyframes glow {
+            from {
+                box-shadow: 0 0 5px #FFD700, 0 0 10px #FFD700, 0 0 15px #FFD700;
+            }
+            to {
+                box-shadow: 0 0 10px #FFD700, 0 0 20px #FFD700, 0 0 30px #FFD700;
+            }
+        }
+
+        /* New CSS for winning animation */
+        @keyframes win-flash {
+            0% { background-color: #f0f4f8; } /* Original background */
+            25% { background-color: #e6ffe6; } /* Brighter green flash */
+            50% { background-color: #f0f4f8; }
+            75% { background-color: #e6ffe6; }
+            100% { background-color: #f0f4f8; }
+        }
+        .winning-animation {
+            animation: win-flash 1.5s ease-out; /* Play once */
+        }
+
+        .log-entry-removed {
+            text-decoration: line-through;
+            color: #ef4444; /* Red color for removed entries */
+            opacity: 0.7;
+        }
+        /* Custom styles for the title */
+        .fancy-title {
+            color: #4A934A; /* Changed to solid green */
+            font-weight: 900; /* Extra bold */
+            /* Removed letter-spacing and text-fill-color for solid color */
+        }
     </style>
 </head>
 <body class="bg-gray-100 text-gray-800 p-4 sm:p-6 md:p-8">
@@ -73,8 +132,7 @@
     <div class="max-w-7xl mx-auto">
         <!-- Header -->
         <header class="text-center mb-8 relative">
-            <h1 class="text-4xl sm:text-5xl font-bold text-gray-800">CAT Rankings</h1>
-            <p class="text-lg text-gray-600">Casuals at Tennis</p>
+            <h1 class="text-4xl sm:text-5xl lg:text-6xl fancy-title">Tennis Rankings</h1>
             <button id="reset-button" class="absolute top-0 right-0 text-xs text-gray-400 hover:text-red-500 hover:underline transition-colors">Reset Data</button>
         </header>
 
@@ -88,8 +146,8 @@
                 <!-- Add Player Form -->
                 <div class="bg-white p-4 rounded-lg shadow-md">
                     <form id="add-player-form" class="flex flex-col sm:flex-row gap-3">
-                        <input type="text" id="new-player-name" placeholder="Enter new player's name" class="flex-grow p-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500" required>
-                        <button type="submit" class="bg-blue-500 hover:bg-blue-600 text-white font-bold py-2 px-4 rounded-md transition-colors">Add Player</button>
+                        <input type="text" id="new-player-name" placeholder="Enter new player's name" class="flex-grow p-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#4A934A]" required>
+                        <button type="submit" class="bg-gray-300 hover:bg-gray-400 text-gray-800 py-2 px-4 rounded-md transition-colors">Add Player</button>
                     </form>
                 </div>
 
@@ -102,7 +160,16 @@
             <div class="space-y-8">
                 <!-- Leaderboard -->
                 <div class="leaderboard-card bg-white p-6 rounded-xl shadow-lg">
-                    <h2 class="text-2xl font-bold mb-4 text-center tennis-court text-white py-2 rounded-t-lg">ATP-Style Rankings</h2>
+                    <h2 class="text-2xl font-bold mb-4 text-center tennis-court text-white py-2 rounded-t-lg">Rankings</h2>
+                    
+                    <!-- Progress Bar -->
+                    <div class="mt-4 mb-2 text-center text-sm font-semibold text-gray-700">
+                        <span id="progress-text">First player needs 100 points to win!</span>
+                    </div>
+                    <div class="progress-bar-container">
+                        <div id="progress-bar" class="progress-bar" style="width: 0%;"></div>
+                    </div>
+
                     <div class="overflow-x-auto">
                         <table class="min-w-full leaderboard-table">
                             <thead class="bg-gray-200">
@@ -130,10 +197,10 @@
         </main>
     </div>
 
-    <!-- Reset Confirmation Modal -->
-    <div id="reset-modal" class="modal-overlay fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 hidden">
+    <!-- Confirmation Modal -->
+    <div id="confirmation-modal" class="modal-overlay fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 hidden">
         <div class="modal-container bg-white w-full max-w-md p-6 rounded-lg shadow-xl">
-            <h3 class="text-xl font-bold mb-4" id="modal-title">Confirm Reset</h3>
+            <h3 class="text-xl font-bold mb-4" id="modal-title">Confirm Action</h3>
             <p id="modal-text" class="text-gray-700 mb-6">Are you sure?</p>
             <div class="flex justify-end gap-4">
                 <button id="modal-cancel" class="px-4 py-2 bg-gray-200 text-gray-800 rounded-md hover:bg-gray-300">Cancel</button>
@@ -144,186 +211,316 @@
 
     <script>
         document.addEventListener('DOMContentLoaded', () => {
-        // --- Element Selectors ---
-        const playersContainer = document.getElementById('players-container');
-        const leaderboardBody = document.getElementById('leaderboard-body');
-        const scoreLog = document.getElementById('score-log');
-        const addPlayerForm = document.getElementById('add-player-form');
-        const newPlayerNameInput = document.getElementById('new-player-name');
-        const resetButton = document.getElementById('reset-button');
-        const resetModal = document.getElementById('reset-modal');
-        const modalText = document.getElementById('modal-text');
-        const modalConfirm = document.getElementById('modal-confirm');
-        const modalCancel = document.getElementById('modal-cancel');
+            // --- Element Selectors ---
+            const playersContainer = document.getElementById('players-container');
+            const leaderboardBody = document.getElementById('leaderboard-body');
+            const scoreLog = document.getElementById('score-log');
+            const addPlayerForm = document.getElementById('add-player-form');
+            const newPlayerNameInput = document.getElementById('new-player-name');
+            const resetButton = document.getElementById('reset-button');
+            const confirmationModal = document.getElementById('confirmation-modal');
+            const modalTitle = document.getElementById('modal-title');
+            const modalText = document.getElementById('modal-text');
+            const modalConfirm = document.getElementById('modal-confirm');
+            const modalCancel = document.getElementById('modal-cancel');
+            const progressBar = document.getElementById('progress-bar');
+            const progressText = document.getElementById('progress-text');
 
-        // --- State ---
-        let players = [];
-        let logs = [];
-        let previousRanks = {};
-        let confirmationStep = 0;
+            // --- Data Initialization ---
+            const initialPlayers = [
+                { id: 1, name: 'Riccardo', points: 0 },
+                { id: 2, name: 'Rohan', points: 0 },
+                { id: 3, name: 'Roshan', points: 0 },
+                { id: 4, name: 'Sam', points: 0 },
+                { id: 5, name: 'Katerina', points: 0 },
+                { id: 6, name: 'Hemant', points: 0 },
+            ];
 
-        const API_BASE = '/api';
+            let players = JSON.parse(localStorage.getItem('cat_rankings_players')) || JSON.parse(JSON.stringify(initialPlayers));
+            let logs = JSON.parse(localStorage.getItem('cat_rankings_logs')) || [];
+            let previousRanks = {};
+            let currentAction = null; // To store the type of action for modal
+            let targetId = null; // To store the ID of the item being acted upon
+            let confirmationStep = 0; // For multi-step reset confirmation
 
-        // --- API Functions ---
-        const fetchPlayers = async () => {
-            const res = await fetch(`${API_BASE}/players`);
-            players = await res.json();
-        };
+            const WINNING_POINTS = 100;
+            const RANK_ONE_COLOR = '#FFD700'; // Gold color for rank one and completed progress bar
 
-        const fetchLogs = async () => {
-            const res = await fetch(`${API_BASE}/logs`);
-            logs = await res.json();
-        };
+            // --- Utility Functions ---
+            const generateUniqueId = () => {
+                return Date.now() + Math.random().toString(36).substring(2, 9);
+            };
 
-        const addNewPlayer = async (name) => {
-            if (!name.trim()) return;
-            await fetch(`${API_BASE}/players`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ name })
-            });
-            await loadAndRender();
-        };
+            // --- Main Functions ---
 
-        const addPoints = async (playerId, pointsToAdd) => {
-            storePreviousRanks();
-            await fetch(`${API_BASE}/players/${playerId}/points`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ points: pointsToAdd })
-            });
-            await loadAndRender();
-            triggerConfetti();
-        };
+            const saveData = () => {
+                localStorage.setItem('cat_rankings_players', JSON.stringify(players));
+                localStorage.setItem('cat_rankings_logs', JSON.stringify(logs));
+            };
+            
+            const resetData = () => {
+                players = JSON.parse(JSON.stringify(initialPlayers));
+                logs = [];
+                saveData(); // Save immediately after reset
+                render();
+            };
 
-        const resetData = async () => {
-            await fetch(`${API_BASE}/reset`, { method: 'POST' });
-            await loadAndRender();
-        };
+            const addNewPlayer = (playerName) => {
+                if (!playerName || !playerName.trim()) return;
+                const newId = players.length > 0 ? Math.max(...players.map(p => p.id)) + 1 : 1;
+                const newPlayer = { id: newId, name: playerName.trim(), points: 0 };
+                players.push(newPlayer);
+                saveData();
+                render();
+            };
 
-        // --- Animation / Effects ---
-        const triggerConfetti = () => {
-            confetti({ particleCount: 150, spread: 90, origin: { y: 0.6 } });
-        };
+            const removePlayer = (playerId) => {
+                players = players.filter(p => p.id !== playerId);
+                // Also remove any logs associated with this player if desired, or mark them as removed
+                logs = logs.filter(log => log.playerId !== playerId);
+                saveData();
+                render();
+            };
 
-        const storePreviousRanks = () => {
-            const sortedPlayers = [...players].sort((a, b) => b.points - a.points);
-            sortedPlayers.forEach((player, index) => {
-                previousRanks[player.id] = index + 1;
-            });
-        };
-
-        // --- Render Functions ---
-        const renderPlayers = () => {
-            playersContainer.innerHTML = '';
-            players.forEach(player => {
-                const playerCard = document.createElement('div');
-                playerCard.className = 'player-card bg-white p-5 rounded-lg shadow-md flex flex-col items-center space-y-3';
-                playerCard.innerHTML = `
-                    <h3 class="text-xl font-semibold">${player.name}</h3>
-                    <p class="text-3xl font-bold text-green-600">${player.points}</p>
-                    <button class="btn-add bg-green-500 hover:bg-green-600 text-white font-bold py-2 px-4 rounded-full w-full" data-player-id="${player.id}">
-                        +10 Points
-                    </button>
-                `;
-                playersContainer.appendChild(playerCard);
-            });
-        };
-
-        const renderLeaderboard = () => {
-            leaderboardBody.innerHTML = '';
-            const sortedPlayers = [...players].sort((a, b) => b.points - a.points);
-            sortedPlayers.forEach((player, index) => {
-                const rank = index + 1;
-                const row = document.createElement('tr');
-                row.className = 'border-b border-gray-200';
-                if (rank === 1 && player.points > 0) row.classList.add('rank-one');
-                const prevRank = previousRanks[player.id];
-                if (prevRank) {
-                    if (rank < prevRank) row.classList.add('rank-up');
-                    else if (rank > prevRank) row.classList.add('rank-down');
+            const addPoints = (playerId, pointsToAdd) => {
+                const player = players.find(p => p.id === playerId);
+                if (player) {
+                    storePreviousRanks();
+                    player.points += pointsToAdd;
+                    const timestamp = new Date();
+                    const logEntry = { id: generateUniqueId(), playerId: player.id, playerName: player.name, pointsAdded: pointsToAdd, timestamp: timestamp.toISOString(), removed: false };
+                    logs.unshift(logEntry);
+                    saveData();
+                    render();
+                    triggerConfetti();
                 }
-                row.innerHTML = `
-                    <td class="px-4 py-3 text-lg">${rank}</td>
-                    <td class="px-4 py-3">${player.name}</td>
-                    <td class="px-4 py-3 text-right font-medium">${player.points}</td>
-                `;
-                leaderboardBody.appendChild(row);
+            };
+
+            const removeLogEntry = (logId) => {
+                const logIndex = logs.findIndex(log => log.id === logId);
+                if (logIndex > -1) {
+                    const logEntry = logs[logIndex];
+                    if (!logEntry.removed) {
+                        const player = players.find(p => p.id === logEntry.playerId);
+                        if (player) {
+                            player.points -= logEntry.pointsAdded;
+                        }
+                        logEntry.removed = true;
+                        saveData();
+                        render();
+                    }
+                }
+            };
+
+            const triggerConfetti = () => {
+                confetti({ particleCount: 150, spread: 90, origin: { y: 0.6 } });
+            };
+
+            const triggerMajorConfetti = () => {
+                // More elaborate confetti for 100 points
+                confetti({
+                    particleCount: 300, // Increased particle count
+                    spread: 150, // Increased spread
+                    startVelocity: 70, // Increased velocity
+                    origin: { y: 0.7, x: 0.5 },
+                    colors: ['#FFD700', '#FFFFFF', '#4A934A', '#000000', '#FF4500'] // Added more colors
+                });
+                confetti({
+                    particleCount: 200,
+                    spread: 100,
+                    startVelocity: 50,
+                    origin: { y: 0.5, x: 0.2 },
+                    colors: ['#FFD700', '#FFFFFF', '#4A934A', '#FF6347']
+                });
+                confetti({
+                    particleCount: 200,
+                    spread: 100,
+                    startVelocity: 50,
+                    origin: { y: 0.5, x: 0.8 },
+                    colors: ['#FFD700', '#FFFFFF', '#4A934A', '#DAA520']
+                });
+            };
+            
+            const storePreviousRanks = () => {
+                const sortedPlayers = [...players].sort((a, b) => b.points - a.points);
+                sortedPlayers.forEach((player, index) => {
+                    previousRanks[player.id] = index + 1;
+                });
+            };
+
+            // --- Render Functions ---
+
+            const renderPlayers = () => {
+                playersContainer.innerHTML = '';
+                players.forEach(player => {
+                    const playerCard = document.createElement('div');
+                    playerCard.className = 'player-card bg-white p-5 rounded-lg shadow-md flex flex-col items-center space-y-3 relative';
+                    playerCard.innerHTML = `
+                        <button class="remove-player-btn absolute top-2 right-2 text-gray-400 hover:text-gray-600 text-xs font-bold" data-player-id="${player.id}">X</button>
+                        <h3 class="text-xl font-semibold">${player.name}</h3>
+                        <p class="text-3xl font-bold text-[#4A934A]">${player.points}</p>
+                        <button class="btn-add bg-[#4A934A] hover:bg-[#3A7A3A] text-white font-bold py-2 px-4 rounded-full w-full" data-player-id="${player.id}">
+                            +10 Points
+                        </button>
+                    `;
+                    playersContainer.appendChild(playerCard);
+                });
+            };
+
+            const renderLeaderboard = () => {
+                leaderboardBody.innerHTML = '';
+                const sortedPlayers = [...players].sort((a, b) => b.points - a.points);
+                sortedPlayers.forEach((player, index) => {
+                    const rank = index + 1;
+                    const row = document.createElement('tr');
+                    row.className = 'border-b border-gray-200';
+                    if (rank === 1 && player.points > 0) row.classList.add('rank-one');
+                    const prevRank = previousRanks[player.id];
+                    if (prevRank) {
+                        if (rank < prevRank) row.classList.add('rank-up');
+                        else if (rank > prevRank) row.classList.add('rank-down');
+                    }
+                    row.innerHTML = `
+                        <td class="px-4 py-3 text-lg">${rank}</td>
+                        <td class="px-4 py-3">${player.name}</td>
+                        <td class="px-4 py-3 text-right font-medium">${player.points}</td>
+                    `;
+                    leaderboardBody.appendChild(row);
+                });
+
+                // Update progress bar
+                if (sortedPlayers.length > 0) {
+                    const topPlayer = sortedPlayers[0];
+                    const progress = Math.min(100, (topPlayer.points / WINNING_POINTS) * 100);
+                    progressBar.style.width = `${progress}%`;
+                    progressBar.textContent = `${Math.round(progress)}%`;
+                    progressText.innerHTML = `<strong>${topPlayer.name}</strong> needs ${WINNING_POINTS - topPlayer.points > 0 ? WINNING_POINTS - topPlayer.points : 0} points to reach 100!`;
+                    
+                    if (topPlayer.points >= WINNING_POINTS) {
+                        // Check if the player just reached 100 points
+                        if (previousRanks[topPlayer.id] && players.find(p => p.id === topPlayer.id).points - 10 < WINNING_POINTS) { // Assuming 10 points per add
+                            triggerMajorConfetti();
+                            // Add winning animation to body
+                            document.body.classList.add('winning-animation');
+                            // Remove the animation class after it completes
+                            setTimeout(() => {
+                                document.body.classList.remove('winning-animation');
+                            }, 1500); // Duration of the animation
+                        }
+                        progressText.innerHTML = `<strong>${topPlayer.name}</strong> has reached 100 points! 🎉`;
+                        progressBar.classList.add('progress-bar-glow'); // Add glow
+                    } else {
+                        progressBar.classList.remove('progress-bar-glow'); // Remove glow
+                        document.body.classList.remove('winning-animation'); // Ensure it's removed if points drop below 100
+                    }
+                } else {
+                    progressBar.style.width = '0%';
+                    progressBar.textContent = '0%';
+                    progressText.innerHTML = `First player needs 100 points to win!`;
+                    progressBar.classList.remove('progress-bar-glow'); // Remove glow if no players
+                    document.body.classList.remove('winning-animation'); // Ensure it's removed if no players
+                }
+            };
+
+            const renderLogs = () => {
+                scoreLog.innerHTML = '';
+                logs.slice(0, 50).forEach(log => {
+                    const logElement = document.createElement('div');
+                    logElement.className = `bg-gray-100 p-2 rounded-md text-sm relative ${log.removed ? 'log-entry-removed' : ''}`;
+                    logElement.dataset.logId = log.id;
+                    const time = new Date(log.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+                    const date = new Date(log.timestamp).toLocaleDateString([], { day: '2-digit', month: 'short' });
+                    logElement.innerHTML = `
+                        <span class="font-semibold">${log.playerName}</span> got +${log.pointsAdded} pts
+                        <span class="text-gray-500 float-right mr-8">${date} ${time}</span> <!-- Increased mr-8 for spacing -->
+                        ${!log.removed ? `<button class="remove-log-btn absolute top-1 right-1 px-1 py-0.5 text-gray-400 hover:text-gray-600 text-xs font-bold leading-none rounded-full" data-log-id="${log.id}">x</button>` : ''}
+                    `;
+                    scoreLog.appendChild(logElement);
+                });
+                 if (logs.length === 0) {
+                    scoreLog.innerHTML = `<p class="text-gray-500 text-center">No scores added yet.</p>`;
+                }
+            };
+
+            const render = () => {
+                renderPlayers();
+                renderLeaderboard();
+                renderLogs();
+            };
+
+            // --- Modal Logic ---
+            const showModal = (title, text, actionType, id) => {
+                modalTitle.textContent = title;
+                modalText.innerHTML = text;
+                currentAction = actionType;
+                targetId = id;
+                confirmationModal.classList.remove('hidden');
+            };
+
+            const hideModal = () => {
+                confirmationModal.classList.add('hidden');
+                currentAction = null;
+                targetId = null;
+                confirmationStep = 0; // Reset step on close
+            };
+
+            // --- Event Listeners ---
+            playersContainer.addEventListener('click', (e) => {
+                if (e.target.matches('.btn-add')) {
+                    const playerId = parseInt(e.target.dataset.playerId, 10);
+                    addPoints(playerId, 10);
+                } else if (e.target.matches('.remove-player-btn')) {
+                    const playerId = parseInt(e.target.dataset.playerId, 10);
+                    const playerName = players.find(p => p.id === playerId)?.name || 'this player';
+                    showModal('Remove Player', `Are you sure you want to remove <strong>${playerName}</strong>? This action cannot be undone.`, 'removePlayer', playerId);
+                }
             });
-        };
 
-        const renderLogs = () => {
-            scoreLog.innerHTML = '';
-            if (logs.length === 0) {
-                scoreLog.innerHTML = `<p class="text-gray-500 text-center">No scores added yet.</p>`;
-                return;
-            }
-            logs.forEach(log => {
-                const logElement = document.createElement('div');
-                logElement.className = 'bg-gray-100 p-2 rounded-md text-sm';
-                const time = new Date(log.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-                const date = new Date(log.timestamp).toLocaleDateString([], { day: '2-digit', month: 'short' });
-                logElement.innerHTML = `
-                    <span class="font-semibold">${log.playerName}</span> got +${log.pointsAdded} pts
-                    <span class="text-gray-500 float-right">${date} ${time}</span>
-                `;
-                scoreLog.appendChild(logElement);
+            scoreLog.addEventListener('click', (e) => {
+                if (e.target.matches('.remove-log-btn')) {
+                    const logId = e.target.dataset.logId;
+                    const logEntry = logs.find(log => log.id === logId);
+                    if (logEntry && !logEntry.removed) {
+                        showModal('Remove Score Entry', `Are you sure you want to remove the score entry for <strong>${logEntry.playerName}</strong> (+${logEntry.pointsAdded} pts)? This will deduct the points.`, 'removeLog', logId);
+                    }
+                }
             });
-        };
 
-        const loadAndRender = async () => {
-            await fetchPlayers();
-            await fetchLogs();
-            renderPlayers();
-            renderLeaderboard();
-            renderLogs();
-        };
+            addPlayerForm.addEventListener('submit', (e) => {
+                e.preventDefault();
+                addNewPlayer(newPlayerNameInput.value);
+                newPlayerNameInput.value = '';
+            });
 
-        // --- Modal Logic ---
-        const showModal = () => {
-            resetModal.classList.remove('hidden');
-        };
+            resetButton.addEventListener('click', () => {
+                confirmationStep = 1;
+                showModal('Confirm Reset', "Are you sure you want to reset all data? This will clear all scores and player lists.", 'resetData', null);
+            });
 
-        const hideModal = () => {
-            resetModal.classList.add('hidden');
-            confirmationStep = 0;
-        };
+            modalCancel.addEventListener('click', hideModal);
 
-        // --- Event Listeners ---
-        playersContainer.addEventListener('click', (e) => {
-            if (e.target.matches('.btn-add')) {
-                const playerId = parseInt(e.target.dataset.playerId, 10);
-                addPoints(playerId, 10);
-            }
+            modalConfirm.addEventListener('click', () => {
+                if (currentAction === 'resetData') {
+                    if (confirmationStep === 1) {
+                        confirmationStep = 2;
+                        modalText.innerHTML = "<strong class='text-red-600'>FINAL WARNING:</strong> All scores and history will be permanently wiped. This action cannot be undone. Are you absolutely sure?";
+                    } else if (confirmationStep === 2) {
+                        resetData();
+                        hideModal();
+                    }
+                } else if (currentAction === 'removePlayer') {
+                    removePlayer(targetId);
+                    hideModal();
+                } else if (currentAction === 'removeLog') {
+                    removeLogEntry(targetId);
+                    hideModal();
+                }
+            });
+
+            // --- Initial Load ---
+            storePreviousRanks();
+            render();
         });
-
-        addPlayerForm.addEventListener('submit', async (e) => {
-            e.preventDefault();
-            await addNewPlayer(newPlayerNameInput.value);
-            newPlayerNameInput.value = '';
-        });
-
-        resetButton.addEventListener('click', () => {
-            confirmationStep = 1;
-            modalText.innerHTML = "Are you sure you want to reset all data? This will clear all scores and player lists.";
-            showModal();
-        });
-
-        modalCancel.addEventListener('click', hideModal);
-
-        modalConfirm.addEventListener('click', async () => {
-            if (confirmationStep === 1) {
-                confirmationStep = 2;
-                modalText.innerHTML = "<strong class='text-red-600'>FINAL WARNING:</strong> All scores and history will be permanently wiped. Are you absolutely sure?";
-            } else if (confirmationStep === 2) {
-                await resetData();
-                hideModal();
-            }
-        });
-
-        // --- Initial Load ---
-        loadAndRender();
-    });
     </script>
 </body>
 </html>
