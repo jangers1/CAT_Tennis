@@ -226,90 +226,85 @@
             const progressBar = document.getElementById('progress-bar');
             const progressText = document.getElementById('progress-text');
 
-            // --- Data Initialization ---
-            const initialPlayers = [
-                { id: 1, name: 'Riccardo', points: 0 },
-                { id: 2, name: 'Rohan', points: 0 },
-                { id: 3, name: 'Roshan', points: 0 },
-                { id: 4, name: 'Sam', points: 0 },
-                { id: 5, name: 'Katerina', points: 0 },
-                { id: 6, name: 'Hemant', points: 0 },
-            ];
-
-            let players = JSON.parse(localStorage.getItem('cat_rankings_players')) || JSON.parse(JSON.stringify(initialPlayers));
-            let logs = JSON.parse(localStorage.getItem('cat_rankings_logs')) || [];
+            // --- State ---
+            let players = [];
+            let logs = [];
             let previousRanks = {};
-            let currentAction = null; // To store the type of action for modal
-            let targetId = null; // To store the ID of the item being acted upon
-            let confirmationStep = 0; // For multi-step reset confirmation
+            let currentAction = null;
+            let targetId = null;
+            let confirmationStep = 0;
 
             const WINNING_POINTS = 100;
-            const RANK_ONE_COLOR = '#FFD700'; // Gold color for rank one and completed progress bar
 
-            // --- Utility Functions ---
-            const generateUniqueId = () => {
-                return Date.now() + Math.random().toString(36).substring(2, 9);
+            // --- API Helpers ---
+            const apiFetch = async (url, options = {}) => {
+                const res = await fetch(url, {
+                    headers: { 'Content-Type': 'application/json' },
+                    ...options,
+                });
+                if (!res.ok) {
+                    const err = await res.json().catch(() => ({}));
+                    throw new Error(err.error || `Request failed: ${res.status}`);
+                }
+                return res.json();
             };
 
             // --- Main Functions ---
 
-            const saveData = () => {
-                localStorage.setItem('cat_rankings_players', JSON.stringify(players));
-                localStorage.setItem('cat_rankings_logs', JSON.stringify(logs));
-            };
-            
-            const resetData = () => {
-                players = JSON.parse(JSON.stringify(initialPlayers));
-                logs = [];
-                saveData(); // Save immediately after reset
+            const loadData = async () => {
+                const [fetchedPlayers, fetchedLogs] = await Promise.all([
+                    apiFetch('/api/players'),
+                    apiFetch('/api/logs'),
+                ]);
+                players = fetchedPlayers;
+                logs = fetchedLogs;
                 render();
             };
 
-            const addNewPlayer = (playerName) => {
+            const resetData = async () => {
+                await apiFetch('/api/reset', { method: 'POST' });
+                await loadData();
+            };
+
+            const addNewPlayer = async (playerName) => {
                 if (!playerName || !playerName.trim()) return;
-                const newId = players.length > 0 ? Math.max(...players.map(p => p.id)) + 1 : 1;
-                const newPlayer = { id: newId, name: playerName.trim(), points: 0 };
+                const newPlayer = await apiFetch('/api/players', {
+                    method: 'POST',
+                    body: JSON.stringify({ name: playerName.trim() }),
+                });
                 players.push(newPlayer);
-                saveData();
                 render();
             };
 
-            const removePlayer = (playerId) => {
+            const removePlayer = async (playerId) => {
+                await apiFetch(`/api/players/${playerId}`, { method: 'DELETE' });
                 players = players.filter(p => p.id !== playerId);
-                // Also remove any logs associated with this player if desired, or mark them as removed
                 logs = logs.filter(log => log.playerId !== playerId);
-                saveData();
                 render();
             };
 
-            const addPoints = (playerId, pointsToAdd) => {
-                const player = players.find(p => p.id === playerId);
-                if (player) {
-                    storePreviousRanks();
-                    player.points += pointsToAdd;
-                    const timestamp = new Date();
-                    const logEntry = { id: generateUniqueId(), playerId: player.id, playerName: player.name, pointsAdded: pointsToAdd, timestamp: timestamp.toISOString(), removed: false };
-                    logs.unshift(logEntry);
-                    saveData();
-                    render();
-                    triggerConfetti();
-                }
+            const addPoints = async (playerId, pointsToAdd) => {
+                storePreviousRanks();
+                const { player, logEntry } = await apiFetch(`/api/players/${playerId}/points`, {
+                    method: 'POST',
+                    body: JSON.stringify({ points: pointsToAdd }),
+                });
+                const idx = players.findIndex(p => p.id === player.id);
+                if (idx > -1) players[idx] = player;
+                logs.unshift(logEntry);
+                render();
+                triggerConfetti();
             };
 
-            const removeLogEntry = (logId) => {
-                const logIndex = logs.findIndex(log => log.id === logId);
-                if (logIndex > -1) {
-                    const logEntry = logs[logIndex];
-                    if (!logEntry.removed) {
-                        const player = players.find(p => p.id === logEntry.playerId);
-                        if (player) {
-                            player.points -= logEntry.pointsAdded;
-                        }
-                        logEntry.removed = true;
-                        saveData();
-                        render();
-                    }
+            const removeLogEntry = async (logId) => {
+                const { player, logEntry } = await apiFetch(`/api/logs/${logId}`, { method: 'DELETE' });
+                if (player) {
+                    const idx = players.findIndex(p => p.id === player.id);
+                    if (idx > -1) players[idx] = player;
                 }
+                const localLog = logs.find(l => l.id === logId);
+                if (localLog) localLog.removed = true;
+                render();
             };
 
             const triggerConfetti = () => {
@@ -465,10 +460,10 @@
             };
 
             // --- Event Listeners ---
-            playersContainer.addEventListener('click', (e) => {
+            playersContainer.addEventListener('click', async (e) => {
                 if (e.target.matches('.btn-add')) {
                     const playerId = parseInt(e.target.dataset.playerId, 10);
-                    addPoints(playerId, 10);
+                    await addPoints(playerId, 10);
                 } else if (e.target.matches('.remove-player-btn')) {
                     const playerId = parseInt(e.target.dataset.playerId, 10);
                     const playerName = players.find(p => p.id === playerId)?.name || 'this player';
@@ -486,9 +481,9 @@
                 }
             });
 
-            addPlayerForm.addEventListener('submit', (e) => {
+            addPlayerForm.addEventListener('submit', async (e) => {
                 e.preventDefault();
-                addNewPlayer(newPlayerNameInput.value);
+                await addNewPlayer(newPlayerNameInput.value);
                 newPlayerNameInput.value = '';
             });
 
@@ -499,27 +494,27 @@
 
             modalCancel.addEventListener('click', hideModal);
 
-            modalConfirm.addEventListener('click', () => {
+            modalConfirm.addEventListener('click', async () => {
                 if (currentAction === 'resetData') {
                     if (confirmationStep === 1) {
                         confirmationStep = 2;
                         modalText.innerHTML = "<strong class='text-red-600'>FINAL WARNING:</strong> All scores and history will be permanently wiped. This action cannot be undone. Are you absolutely sure?";
                     } else if (confirmationStep === 2) {
-                        resetData();
+                        await resetData();
                         hideModal();
                     }
                 } else if (currentAction === 'removePlayer') {
-                    removePlayer(targetId);
+                    await removePlayer(targetId);
                     hideModal();
                 } else if (currentAction === 'removeLog') {
-                    removeLogEntry(targetId);
+                    await removeLogEntry(targetId);
                     hideModal();
                 }
             });
 
             // --- Initial Load ---
             storePreviousRanks();
-            render();
+            loadData();
         });
     </script>
 </body>

@@ -1,6 +1,5 @@
 const express = require("express");
 const cors = require("cors");
-const bodyParser = require("body-parser");
 const path = require("path");
 const fs = require("fs").promises;
 
@@ -8,7 +7,7 @@ const app = express();
 const PORT = process.env.PORT || 3000;
 
 app.use(cors());
-app.use(bodyParser.json());
+app.use(express.json());
 app.use(express.static(path.join(__dirname, "public"))); // serves frontend
 
 const DATA_FILE = path.join(__dirname, "data.json");
@@ -72,13 +71,42 @@ app.post("/api/players/:id/points", async (req, res) => {
 
   player.points += points;
   const logEntry = {
+    id: Date.now().toString(36) + Math.random().toString(36).substring(2, 9),
+    playerId: player.id,
     playerName: player.name,
     pointsAdded: points,
     timestamp: new Date().toISOString(),
+    removed: false,
   };
   logs.unshift(logEntry);
   await saveData();
   res.json({ player, logEntry });
+});
+
+// Delete a player
+app.delete("/api/players/:id", async (req, res) => {
+  const playerId = parseInt(req.params.id);
+  const index = players.findIndex((p) => p.id === playerId);
+  if (index === -1) return res.status(404).json({ error: "Player not found" });
+
+  players.splice(index, 1);
+  logs = logs.filter((l) => l.playerId !== playerId);
+  await saveData();
+  res.json({ message: "Player removed." });
+});
+
+// Remove a log entry (deducts points)
+app.delete("/api/logs/:id", async (req, res) => {
+  const logId = req.params.id;
+  const logEntry = logs.find((l) => l.id === logId);
+  if (!logEntry) return res.status(404).json({ error: "Log entry not found" });
+  if (logEntry.removed) return res.status(400).json({ error: "Already removed" });
+
+  const player = players.find((p) => p.id === logEntry.playerId);
+  if (player) player.points -= logEntry.pointsAdded;
+  logEntry.removed = true;
+  await saveData();
+  res.json({ player: player || null, logEntry });
 });
 
 // Get logs
